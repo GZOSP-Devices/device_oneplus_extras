@@ -41,6 +41,8 @@ public class TiltSensor implements SensorEventListener {
     private WakeLock mSensorWakeLock;
     private Context mContext;
 
+    private boolean mTiltGestureEnabled;
+
     private long mEntryTimestamp;
 
     public TiltSensor(Context context) {
@@ -75,15 +77,28 @@ public class TiltSensor implements SensorEventListener {
         /* Empty */
     }
 
+    // Switching screen OFF - we enable the sensor
     protected void enable() {
         if (DEBUG) Log.d(TAG, "Enabling");
-        mSensorManager.registerListener(this, mSensor,
-                SensorManager.SENSOR_DELAY_NORMAL, BATCH_LATENCY_IN_MS * 1000);
-        mEntryTimestamp = SystemClock.elapsedRealtime();
+        submit(() -> {
+            // We save user settings so at next screen ON call (enable())
+            // we don't need to read them again from the Settings provider
+            mTiltGestureEnabled = Utils.pickUpEnabled(mContext);
+            if (mTiltGestureEnabled) {
+                mSensorManager.registerListener(this, mSensor,
+                        SensorManager.SENSOR_DELAY_NORMAL, BATCH_LATENCY_IN_MS * 1000);
+                mEntryTimestamp = SystemClock.elapsedRealtime();
+            }
+        });
     }
 
+    // Switching screen ON - we disable the sensor
     protected void disable() {
         if (DEBUG) Log.d(TAG, "Disabling");
-        mSensorManager.unregisterListener(this, mSensor);
+        submit(() -> {
+            if (mTiltGestureEnabled) {
+                mSensorManager.unregisterListener(this, mSensor);
+            }
+        });
     }
 }
